@@ -1,0 +1,162 @@
+---
+title: "Kalman Filters in Remote Patient Monitoring"
+subtitle: "A Review and Application of Literature"
+author: "Rebecca Hadi"
+date: "August 2021"
+output: pdf_document
+toc: yes
+---
+
+
+# Background on Kalman Filters
+The Kalman filter was developed by Rudolf E. Kalman (1930-2016) and was further developed by Richard S. Bucy (sometimes referred to as the Kalman-Bucy filter). One of the first applications of the Kalman filter was in navigation for the Apollo Project, which required estimates of trajectories of manned spacecraft.^1^ Kalman filters were initially developed for estimation and prediction in a tracking context.^1^
+
+In the Oksendal text, Theorem 6.2.8 describes the Kalman-Bucy filter^2^. 
+
+The solution $\hat{X}_{t} = E[X_{t}|G_{t}]$ of the 1-dimensional linear filtering problem 
+
+(linear system)      $dX_{t} = F(t)X_{t}dt + C(t)dU_{t};$ $F(t), C(t) \in R$ 
+
+(linear observations)  $dZ_{t} = G(t)X_{t}dt + D(t)dV_{t};$  $G(t), D(t) \in R$ 
+
+(with conditions as stated earlier)  satisfies the stochastic differential equation 
+
+$d\hat{X}_{t} = (F(t) - \frac{G^{2}(t)S(t)}{D^{2}(t)})\hat{X}_{t}dt + \frac{G(t)S(t)}{D^{2}(t)}dZ_{t};$  $\hat{X}_{0} = E[{X}_{0}]$
+where 
+
+$S(t) = E[(X_{t} - \hat{X}_{t})^{2}]$ satisfies the (deterministic) Riccati equation 
+
+$\frac{dS}{dt} = 2F(t)S(t) - \frac{G^{2}(t)}{D^{2}(t)}S^{2}(t) + C^{2}(t),$ $S(0) = E[(X_{0} - E[X_{0}])^{2}]$ 
+
+The Kalman Filter uses a combination of system and observations to generate a prediction (linear system) as a prior and use the actual (linear observation) to correct the prediction as a posterior. 
+
+# Approaches
+The application of Kalman Filters being reviewed in this paper is remote patient monitoring in the medical setting. This paper will compare and contrast two different medical monitoring applications using the Kalman Filter.  This is a useful application because of the increase in virtual care as a result of the pandemic and the need for reliable methods to record and monitor patient vital signs.  The articles reviewed are listed below and notated for simpler reference throughout the paper. Full citations are available in the end notes of this paper. 
+
+* Paper 1:  "Extended Kalman Filter for Doppler Radar Cardiopulmonary Monitoring System" 
+  * This paper described the application of the Extended Kalman Filter (EKF) for the use of the quadrature direct conversion Doppler radar as the collection mechanism for heart and respiratory rates. The Doppler radar would be a helpful method for collecting these data in situations where contact systems are not appropriate (e.g. burn victim, neonates, infants).^3^
+
+* Paper 2: "The Multi-State Kalman Filter in Medical Monitoring" 
+  * This paper described the application of the Kalman filter to the monitoring of patients after a kidney transplant to identify if the transplant was being rejected. The author describes the cumulative sum method but goes on to address that the Kalman Filter is able to address the problems with this approach by being robust to missing data and the lack of homogeneity in the patient population (where 'normal variation' is not uniform across the patient sample).^4^
+
+# Methods
+* Paper 1: This paper implemented the "Extended Kalman Filter" (EKF), which is an extension of the Kalman Filter to address non-linearity for "systems have non-linear dynamic models". The experiment conducted was to compare the heart and respiratory rates collected as the output of the EKF based on signal from the Doppler radar to the control, which was a typical collection of heart rate from an electrocardiogram (ECG).  
+
+* Paper 2: This paper implemented the Kalman Filter as a means to calculate a probability of slope change in the sequence of serum creatine.  If the kidney were rejected, the expectation is that the direction of the serum creatine would switch abruptly. Therefore, being able to detect the change in slope as early as possible bodes well for clinical intervention. However, there are expected variations that can occur from dialysis, which would not necessarily be the signal of rejection^4^. Compared to Paper 1, this paper did not implement a non-linear system and therefore used the traditional Kalman Filter compared to the Extended Kalman Filter (EKF).  The problem is framed as a 4-state structure where the states are steady state, transient state, level change, and slope change^4^. 
+
+
+
+# Evaluation 
+* Paper 1: For the 600 seconds of data collected, the standard deviations of the difference between the EKF and ECG heart rates were 0.0299 and 0.21 Hz (1.794 BPM and 1.26 BPM)^3^.  The authors say that these results indicate that EKF estimation can follow ECG with some acceptable fluctuations.  Depending on the situation and need for complete fidelity to the signal, this method could be quite useful in practice. It could also be the case that the Doppler radar and EKF were the primary means of detection and if there was a certain critical event then the patient could transition to the ECG. It comes down to the trade off between 100 percent fidelity in the measurement compared to the intrusive of the typical ECG.  In most situations, an average difference of < 2BPM is acceptable. 
+
+* Paper 2: On average, the Kalman Filter method signaled a change in kidney function on average one day earlier than the clinician, and on several occasions many days, or even a whole week earlier.^4^ (n = 28 patients, 32 rejections).  It is difficult to compare the performance to Paper 1 because of the different use cases. However, Paper 2 provides clinical benefit by signalling the need for earlier intervention (and likely more success in intervention), whereas Paper 1 the use case is to replace and unfeasible method of data collection using the EKF based approach. 
+
+
+# Python Implementation of Kalman Filter
+For the python implementation of the Kalman Filter, I re-constructed the data from the Paper 2 in the "low noise" case. The scale of the chart made it hard to read as the scale was not uniform and the data were not recorded in any table that I could find.  The reproducibility of the results could be greatly improved if the data were made available. Therefore, I estimated based on the paper so that the synthetic data set followed the same general trend, as shown in the plot below. 
+
+```{r, echo=FALSE}
+library(ggplot2)
+# data is plasma creative concentration
+observations <- c(500,750,800,850,850, 790,800,790,780,800,810,800, 
+                  790,600,400,350,200,150,140,130,120,140,160,170,172, 
+                  200,250,270,350,400,600)
+
+days <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31)
+
+ 
+df <- cbind(data.frame(observations), data.frame(days))
+
+# plot to compare against data in paper 
+ggplot(data=df, aes(x=days, y=observations)) + geom_point(fill='blue') + ggtitle("Synthetic Data - Plasma Creatine Concentration") + theme_minimal()  + xlab("Time after transplantation (days)") + ylab("Plasma creatine concentration mol/l")
+```
+
+
+
+For the implementation of the Kalman filter, I used the python library `pykalman` and specifically the function `KalmanFilter`. Based on the paper, the observation and system equations are represented as follows: 
+
+(linear system)      $y(t) = u(t) + e(t)$ 
+
+(linear observations)  $u(t) = u(t-1) + b(t) + du(t)$  
+                       $b(t) = b(t-1) + db(t)$
+
+where:
+
+* $y(t)$ is the measurement at time t
+
+* $u(t)$ is the true value at time t 
+
+* $e(t)$ is the noise at time t (random measurement perturbation)
+
+* $b(t)$ is the incremental growth at time t 
+
+* $du(t)$ is the change in true value at time t (step change)
+
+* $db(t)$ is the change in incremental growth at time t 
+
+The paper then uses the Kalman Filter to estimate the posterior probability of a slope change at time t $db(t)$, which can signal the rejection of the kidney transplant. The paper also specifies a state/observation system for unequally spaced data based on the observation k rather than time t. In this application, the data were assumed to be equally space (1 reading per day in the synthetic data).
+
+
+For my implementation, I focused on the smoothing aspect of the Kalman filter.  After specifying the transition and observation matrices, I use the KalmanFilter function to construct the filter and apply the smoothing. The output of the Kalman filter is plotted below in Figure 1.
+
+```{python, eval = FALSE,echo=FALSE}
+import numpy as np 
+import pandas as pd 
+import matplotlib.pyplot as plt
+from pykalman import KalmanFilter
+
+# time
+t = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]
+
+# time between observations (dt)
+dt = [np.mean(np.diff(t))] + list(np.diff(t))
+transition_matrices = np.asarray([[[1, date],[0, 1]] for date in dt])
+
+# observations
+observations = [500,750,800,850,850, 790,800,790,780,800,810,800, 
+                  790,600,400,350,200,150,140,130,120,140,160,170,172, 
+                  200,250,270,350,400,600]
+
+# specify observation matrix
+observation_matrix = np.asarray([[1, 0]])
+
+# difference in time between observation (specify transition matrix)
+dt = [np.mean(np.diff(t))] + list(np.diff(t))
+transition_matrices = np.asarray([[[1, date],[0, 1]] for date in dt])
+
+# observations
+observations = np.transpose(np.asarray([observations]))
+
+observations = np.ma.array(observations)
+
+# apply kalman filter
+kf = KalmanFilter(transition_matrices = transition_matrices,
+                   observation_matrices = observation_matrix)
+
+# return kalman filter mean and covariances based on predict/update steps
+(state_means, state_covariances_smoothed) = kf.smooth(observations)
+
+```
+
+![Applied Kalman Filter](kalman-filter-applied.png)
+
+
+# Conclusion
+Based on review of the two papers, the Kalman Filter has promising applications in the field of remote patient monitoring. In Paper 1, the Extended Kalman filter was shown to be a suitable replacement for the ECG with some minor tolerance for error, when the ECG may not be feasible.  In Paper 2, the 4 state model with the Kalman filter was shown to identify patient rejection of kidney transplant on or before a clinical identification.  It does however appear to be in its nascent stages with specific and experimental applications. With the ubiquity of smart watches that are able to track health metrics (e.g. pulse, blood oxygen), in the author's view, the utility of the Kalman Filter will help make these data points more useful from a clinical perspective than their native signals. Given the volume of work that physicians are expected to take on and the fact that they are limited to human judgement, the Kalman Filter and its extensions may be able to help reduce workload and provider burnout and augment healthcare. 
+
+
+
+# Potential Next Steps
+For the next steps in my implementation, I could expand the application to include the complexity of the unequally spaced observations to make a more robust system. From a literature perspective, there appear to be other applications of the Kalman filter in the medical setting that I would be curious to review^6^ to understand performance.  In further review of literature, this author's hope is that the data sets will be more readily available for the replication of experimental results.
+
+
+
+
+
+# End Notes & Citations
+(1) M. S. Grewal and A. P. Andrews, "Applications of Kalman Filtering in Aerospace 1960 to the Present [Historical Perspectives]," in IEEE Control Systems Magazine, vol. 30, no. 3, pp. 69-78, June 2010, doi: 10.1109/MCS.2010.936465.
+(2) Øksendal, B. K. (2013). The Filtering Problem. In Stochastic differential equations an introduction with applications. essay, Springer. 
+(3) Rahman, M. S., Haque, M. M., Jang, B.-J., & Kim, K.-D. (2012). Extended Kalman Filter for Doppler radar cardiopulmonary monitoring system. 2012 7th International Conference on Electrical and Computer Engineering. 
+(4) Gordon, K. (1986). The multi-state Kalman Filter in medical monitoring. Computer Methods and Programs in Biomedicine, 23(2), 147–154. https://doi.org/10.1016/0169-2607(86)90109-4 
+(5) https://pykalman.github.io/index.html
+(6) Majumder S, Mondal T, Deen MJ. Wearable Sensors for Remote Health Monitoring. Sensors (Basel). 2017;17(1):130. Published 2017 Jan 12. doi:10.3390/s17010130
